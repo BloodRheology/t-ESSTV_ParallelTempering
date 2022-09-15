@@ -1,0 +1,101 @@
+function [dy] = mHAWB_ODE(t,y,par,consVec,dataVec)
+
+Mu0_c = par.mu0;
+MuINF_c = par.muinf;
+TauC = par.tauC;
+
+tr1 = par.tr1;
+tr2 = par.tr2;
+MuR = par.muR;
+Sigy0 = par.sigy0;
+
+TauLAM = par.taulam;
+GR = par.GR;
+Gc = par.GC;
+
+at = consVec(1);
+d = consVec(2);
+m = consVec(3);
+GammaINF = consVec(4);
+ZZZZ = consVec(5);
+SHEAR = consVec(6);
+
+TimeVECT = dataVec{1};
+ShearVECT = dataVec{2};
+
+
+dy=zeros(8,1);
+
+if ZZZZ==1
+
+    if t<2
+        ShearREAL=interp1(TimeVECT, ShearVECT, t);
+    else
+        ShearREAL=SHEAR;
+    end
+
+    if ShearREAL<0
+        ShearREAL=SHEAR;
+    end
+
+    SHEAR_act=ShearREAL;
+else
+    SHEAR_act=SHEAR;
+end
+
+Shear0=SHEAR_act;
+
+GMax0=min( (GammaINF*(y(1))), GammaINF);
+              
+ShearP0=(SHEAR_act)/(2-min((y(2)),GMax0)/GMax0);
+               
+dy(1)= (1/TauLAM)*((1-y(1))+(1-y(1))*(tr2*abs(ShearP0))^d - y(1)*tr1*abs(ShearP0)^at );
+
+Gamma_=GammaINF*dy(1);
+
+if  Gamma_>=0
+     dy(2)=ShearP0 - min(y(2), GMax0)/GMax0*abs(ShearP0);
+else
+     dy(2)=ShearP0 - min(y(2), GMax0)/GMax0*abs(ShearP0)+(y(2))/GMax0*Gamma_;
+end
+    
+cI=3+(y(4))/Gc;
+if (cI-3)/2>=0
+     JEF_VAR=sqrt((cI-3)/2);
+else
+     JEF_VAR=-sqrt(-((cI-3)/2));
+end
+a=Gc;
+b=Gc*TauC*JEF_VAR-Mu0_c;
+c=-MuINF_c*TauC*JEF_VAR;
+Lambda_0=(-b+sqrt(b^2-4*c*a))/(2*a);
+dy(3)= Gc*Shear0 - (y(3))/Lambda_0;       %VEyx
+dy(4)= 2*Shear0*(y(3))-(y(4))/Lambda_0;   %VExx
+
+%dy(3)=(GR*y(1))*(ShearP0 - max(0, (abs(y(3))-(y(1)*Sigy0) )/((y(1)^m*MuR)*abs(y(3))^1))^(1/1)*(y(3)) );
+
+%Calculate Sigma_tilda:
+TRACE=(y(6)+y(7)+y(8));
+
+%Components:
+SigmaDxx=(y(6)-TRACE/3);  
+SigmaDyy=(y(7)-TRACE/3); 
+SigmaDzz=(y(8)-TRACE/3);  
+SigmaDyx=(y(5));
+
+%Double Dot Product:
+DOUBLE_DOT=( SigmaDxx^2+SigmaDyx^2+SigmaDyx^2+SigmaDyy^2+SigmaDzz^2);
+
+SigmaTilda=sqrt(DOUBLE_DOT/2);
+
+dy(5)=(GR*y(1))*(Shear0 + (1/(y(1)*GR))*2*y(7)*Shear0- max(0, (abs(SigmaTilda-Sigy0*abs(y(2))) )/((y(1)^m*MuR)*(SigmaTilda)^1))^(1/1)*(y(5)) );   %Ryx
+
+dy(6)=(GR*y(1))*( (1/(y(1)*GR))*2*y(5)*Shear0 - max(0, (abs(SigmaTilda-Sigy0*abs(y(2))) )/((y(1)^m*MuR)*(SigmaTilda)^1))^(1/1)*(y(6))   );         %Rxx
+
+dy(7)=(GR*y(1))*( - max(0, (abs(SigmaTilda-Sigy0*abs(y(2))) )/((y(1)^m*MuR)*(SigmaTilda)^1))^(1/1)*(y(7)) );                                        %Ryy
+
+dy(8)=(GR*y(1))*( - max(0, (abs(SigmaTilda-Sigy0*abs(y(2))) )/((y(1)^m*MuR)*(SigmaTilda)^1))^(1/1)*(y(8)) );                                       %Rzz
+
+
+
+end
